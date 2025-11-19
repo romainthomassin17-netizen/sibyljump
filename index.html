@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sibyl Jump</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Définition de la police et du style général */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
+        
+        :root {
+            --primary-color: #db2777; /* Fuchsia foncé pour les boutons */
+            --secondary-color: #fcd34d; /* Jaune (pour les plateformes normales) */
+            --background-color: #fce7f3; /* Rose très clair */
+            --canvas-border: #831843; /* Bourgogne foncé */
+        }
+
+        /* --- Amélioration pour le Mobile et l'Aperçu --- */
+        html, body {
+            overflow-x: hidden; /* Empêche le défilement horizontal */
+            /* IMPORTANT: Autorise le défilement vertical si nécessaire */
+            overflow-y: auto; 
+            max-width: 100vw;
+            height: auto; /* Laisser la hauteur s'adapter au contenu */
+        }
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: var(--background-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Retire le centrage forcé de la hauteur pour permettre le défilement */
+            justify-content: flex-start; 
+            min-height: 100vh; 
+            margin: 0;
+            padding: 5px 20px; /* Réduit le padding vertical */
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 400px; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            overflow: hidden;
+            background-color: white;
+            padding: 5px; /* Réduit le padding du conteneur de jeu */
+        }
+        
+        /* Assurer que le canvas s'adapte à la largeur du conteneur sur mobile */
+        #gameCanvas {
+            width: 100%; 
+            height: auto; 
+            aspect-ratio: 380 / 500; /* Garde le ratio 380x500 */
+            border: 5px solid var(--canvas-border);
+            /* Changement du fond de bleu à rose */
+            background: linear-gradient(to bottom, #fbcfe8 0%, #ffffff 100%);
+            border-radius: 15px;
+            display: block;
+            touch-action: none; /* Important pour les interactions tactiles */
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px; /* Réduit la marge au-dessus des boutons */
+            gap: 10px;
+            width: 100%;
+        }
+
+        .control-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 18px 30px; /* Légèrement plus grand */
+            border-radius: 50px;
+            font-size: 1.4rem; /* Texte plus grand */
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 6px 0 #9d174d; /* Ombre plus épaisse */
+            width: 48%;
+            user-select: none; 
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            text-transform: uppercase;
+        }
+
+        .control-button:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #9d174d;
+        }
+
+        .info-panel {
+            background-color: #fff;
+            padding: 5px 20px; /* Réduit le padding vertical du panneau d'info */
+            border-radius: 10px;
+            margin-bottom: 5px; /* Réduit la marge en bas du panneau */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+        }
+
+        .title {
+            color: var(--canvas-border);
+            font-size: 1.8rem; /* Titre encore plus réduit */
+            margin-bottom: 3px;
+        }
+
+        #scoreDisplay {
+            font-size: 1.4rem; /* Score légèrement réduit */
+            color: #f43f5e; /* Rose vif pour le score */
+            font-weight: 700;
+        }
+
+        /* Modal pour Game Over */
+        #gameOverModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; /* Caché par défaut */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            transform: scale(0.9);
+            animation: bounceIn 0.3s forwards;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-button {
+            background-color: #db2777; /* Fuchsia */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 3px 0 #9d174d;
+        }
+
+        .modal-button:active {
+            transform: translateY(3px);
+            box-shadow: 0 0 0 #9d174d;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="info-panel">
+        <h1 class="title">Sibyl Jump</h1>
+        <p>Score: <span id="scoreDisplay">0</span></p>
+    </div>
+
+    <canvas id="gameCanvas" width="380" height="500"></canvas>
+
+    <!-- Contrôles Tactiles (Maintenant avant les instructions) -->
+    <div class="controls">
+        <button id="leftButton" class="control-button">← Gauche</button>
+        <button id="rightButton" class="control-button">Droite →</button>
+    </div>
+
+    <!-- Instructions et Commandes -->
+    <div class="text-center mt-3 text-gray-600 text-sm">
+        <p>Déplacez Sibyl avec les flèches ← et →, les touches **A/Q** (gauche) et **D** (droite), ou les boutons tactiles ci-dessus.</p>
+        <p class="text-xs text-red-500 mt-1">Attention : les plateformes rouges se cassent ! Les bleues bougent ! **Les chats orange sont dangereux !**</p>
+    </div>
+</div>
+
+<!-- Modale de Fin de Jeu -->
+<div id="gameOverModal">
+    <div class="modal-content">
+        <h2 class="text-3xl font-bold text-red-500 mb-2">Game Over !</h2>
+        <!-- NOUVEAU MESSAGE DE FIN DE JEU -->
+        <p class="text-xl mb-4" id="gameOverMessage">Trop tard, tu n'as pas réussi à collecter assez de feuilles !</p>
+        <p class="text-lg">Score Final : <span id="finalScore" class="font-extrabold text-red-500">0</span></p>
+        <p class="text-sm mt-2 text-gray-600">Retourne à Commentry.</p>
+        <!-- FIN NOUVEAU MESSAGE -->
+        <button id="restartButton" class="modal-button">Rejouer</button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+        const leftButton = document.getElementById('leftButton');
+        const rightButton = document.getElementById('rightButton');
+        const gameOverMessage = document.getElementById('gameOverMessage'); // Référence au nouveau message
+
+        // --- CONSTANTES DU JEU ---
+        const GAME_WIDTH = canvas.width;
+        const GAME_HEIGHT = canvas.height;
+        const GRAVITY = 0.5;
+        const PLATFORM_COUNT = 10;
+        const MAX_PLATFORM_JUMP_HEIGHT = 15; // Force de saut après contact
+        const CAMERA_THRESHOLD = GAME_HEIGHT * 0.4; // Niveau où la caméra commence à suivre
+        const CAT_SPAWN_PROBABILITY = 0.05; 
+        const LEAF_SPAWN_PROBABILITY = 0.1; // 10% de chance d'apparition pour la feuille
+        const CLOUD_COUNT = 5;
+
+        // --- DÉCLARATIONS DES VARIABLES D'ÉTAT (MERGÉES) ---
+        let score = 0; // Seule déclaration de 'score'
+        let bestScore = 0;
+        let isPlaying = true;
+        let keys = {};
+        
+        let sibyl;
+        let platforms = [];
+        let enemies = []; 
+        let clouds = []; // Pour les nuages d'ambiance
+        let collectibles = []; // Déclaration GLOBALE unique de collectibles (Feuilles)
+
+
+        // --- FONCTION UTILITAIRE POUR DESSINER DES RECTANGLES ARRONDIS ---
+        function roundRect(x, y, w, h, radius) {
+            if (w < 2 * radius) radius = w / 2;
+            if (h < 2 * radius) radius = h / 2;
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.arcTo(x + w, y, x + w, y + h, radius);
+            ctx.arcTo(x + w, y + h, x, y + h, radius);
+            ctx.arcTo(x, y + h, x, y, radius);
+            ctx.arcTo(x, y, x + w, y, radius);
+            ctx.closePath();
+        }
+
+        // --- CLASSE CLOUD (Pour l'arrière-plan) ---
+        class Cloud {
+            constructor(x, y, size) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.speed = 0.3 * (size / 50); // Plus c'est petit, plus c'est rapide
+            }
+
+            update(scrollAmount) {
+                this.y += scrollAmount;
+                this.x += this.speed;
+
+                // Boucle horizontale pour les nuages
+                if (this.x > GAME_WIDTH + this.size * 2) {
+                    this.x = -this.size * 2;
+                    this.y = Math.random() * GAME_HEIGHT; // Nouvelle hauteur aléatoire
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                const r = this.size;
+
+                // 3 cercles pour former la forme du nuage
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+                ctx.arc(this.x + r * 0.8, this.y + r * 0.2, r * 1.2, 0, Math.PI * 2);
+                ctx.arc(this.x - r * 0.8, this.y + r * 0.2, r, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        // --- CLASSE SIBYL (LE JOUEUR) ---
+        class Sibyl {
+            constructor() {
+                this.width = 30;
+                this.height = 30;
+                this.x = GAME_WIDTH / 2 - this.width / 2;
+                this.y = GAME_HEIGHT - 70; 
+                this.vx = 0; // Vitesse horizontale
+                this.vy = 0; // Vitesse verticale
+                this.jumpStrength = MAX_PLATFORM_JUMP_HEIGHT;
+                this.moveSpeed = 7; 
+            }
+
+            draw() {
+                // Échelle Réduite pour un personnage plus petit
+                const SCALE = 0.9; 
+                const headR = 15 * SCALE; // Rayon de la tête
+                const torsoW = 25 * SCALE;
+                const torsoH = 20 * SCALE;
+                const armColor = '#fde68a'; // Couleur peau
+                const tShirtColor = '#ec4899'; // Rose foncé/fuchsia pour le t-shirt
+                const pantsColor = '#fca5a5'; // Short rose clair
+                const shoesColor = '#3b82f6'; // Chaussures bleues (conservées en bleu pour le contraste)
+
+                const headX = this.x + this.width / 2;
+                // Positionner la tête au-dessus du corps pour une silhouette plus humaine
+                const headY = this.y + 10; 
+                const bodyX = headX - torsoW / 2;
+                const bodyY = headY + headR - 5; // Moins d'espace pour le cou
+                
+                // Calcul de l'effet de balancement des cheveux
+                const swing = -this.vx * 0.5; 
+                
+                // --- 1. Cheveux et Couettes ---
+                ctx.fillStyle = '#fef08a'; // Blond vif
+
+                // Base de la tête (sous les couettes)
+                ctx.beginPath();
+                ctx.arc(headX, headY, headR + 1, 0, Math.PI * 2);
+                ctx.fill();
+                
+                const pigtailR = 8 * SCALE; // Rayon des couettes
+                const tieColor = '#db2777'; // Élastiques fuchsia (couleur primaire)
+                
+                // Couette Gauche
+                ctx.beginPath();
+                ctx.arc(headX - headR * 0.9, headY - headR * 0.5, pigtailR * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Élastique Gauche
+                ctx.fillStyle = tieColor;
+                ctx.beginPath();
+                ctx.arc(headX - headR * 0.9, headY - headR * 0.5, pigtailR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Couette Droite
+                ctx.fillStyle = '#fef08a'; 
+                ctx.beginPath();
+                ctx.arc(headX + headR * 0.9, headY - headR * 0.5, pigtailR * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Élastique Droit
+                ctx.fillStyle = tieColor;
+                ctx.beginPath();
+                ctx.arc(headX + headR * 0.9, headY - headR * 0.5, pigtailR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Frange (Devant)
+                ctx.fillStyle = '#fef08a'; 
+                ctx.beginPath();
+                // Utilisation de la courbe pour un effet frange "balayée"
+                ctx.moveTo(headX - headR, headY - headR * 0.1);
+                ctx.quadraticCurveTo(headX, headY - headR * 0.7, headX + headR, headY - headR * 0.1);
+                ctx.lineTo(headX + headR, headY - headR);
+                ctx.lineTo(headX - headR, headY - headR);
+                ctx.closePath();
+                ctx.fill();
+
+
+                // --- 2. Tête (Couleur peau) ---
+                ctx.fillStyle = armColor;
+                ctx.beginPath();
+                ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // --- 3. Visage ---
+                ctx.fillStyle = 'black';
+                // Yeux (plus grands, pupilles)
+                ctx.beginPath();
+                ctx.arc(headX - headR * 0.3, headY - headR * 0.1, 3 * SCALE, 0, Math.PI * 2);
+                ctx.arc(headX + headR * 0.3, headY - headR * 0.1, 3 * SCALE, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bouche (grand sourire)
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1.5 * SCALE;
+                ctx.beginPath();
+                ctx.arc(headX, headY + headR * 0.4, 5 * SCALE, 0, Math.PI, false);
+                ctx.stroke();
+
+                // --- 4. Corps (T-shirt Rose Foncé) ---
+                ctx.fillStyle = tShirtColor;
+                roundRect(bodyX, bodyY, torsoW, torsoH, 8 * SCALE); 
+                ctx.fill();
+                
+                // Nom sur le T-shirt
+                ctx.fillStyle = 'white';
+                ctx.font = `bold ${10 * SCALE}px Fredoka`;
+                ctx.textAlign = 'center';
+                ctx.fillText('SIBYL', headX, bodyY + torsoH / 2 + 3 * SCALE);
+                
+                // --- 5. Bras (Fins et flottants) ---
+                const armW = 5 * SCALE;
+                const handR = 4 * SCALE;
+                const armY = bodyY + 5 * SCALE;
+                const handY = armY + 20 * SCALE + swing * 0.5; // Balancement du bras
+                
+                // Bras Gauche
+                ctx.fillStyle = armColor;
+                roundRect(headX - torsoW / 2 - armW, armY, armW, 20 * SCALE, 2); // Avant-bras
+                ctx.beginPath();
+                ctx.arc(headX - torsoW / 2 - armW / 2, handY, handR, 0, Math.PI * 2); // Main
+                ctx.fill();
+
+                // Bras Droit
+                ctx.fillStyle = armColor;
+                roundRect(headX + torsoW / 2, armY, armW, 20 * SCALE, 2); // Avant-bras
+                ctx.beginPath();
+                ctx.arc(headX + torsoW / 2 + armW / 2, handY, handR, 0, Math.PI * 2); // Main
+                ctx.fill();
+
+                // --- 6. Shorts/Jambes ---
+                const legW = 12 * SCALE;
+                const legH = 25 * SCALE;
+                const legY = bodyY + torsoH - 5 * SCALE; 
+                
+                // Shorts Rose Clair
+                ctx.fillStyle = pantsColor;
+                ctx.beginPath();
+                ctx.moveTo(headX - torsoW / 2, legY);
+                ctx.lineTo(headX + torsoW / 2, legY);
+                ctx.lineTo(headX + torsoW / 2, legY + 10 * SCALE);
+                ctx.lineTo(headX + 2 * SCALE, legY + 10 * SCALE);
+                ctx.lineTo(headX, legY + 15 * SCALE); // Entrejambe
+                ctx.lineTo(headX - 2 * SCALE, legY + 10 * SCALE);
+                ctx.lineTo(headX - torsoW / 2, legY + 10 * SCALE);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Jambes Couleurs Peau
+                ctx.fillStyle = armColor;
+                // Jambe Gauche
+                roundRect(headX - torsoW / 4 - legW / 2, legY + 10 * SCALE, legW, legH, 5);
+                ctx.fill();
+                // Jambe Droite
+                roundRect(headX + torsoW / 4 - legW / 2, legY + 10 * SCALE, legW, legH, 5);
+                ctx.fill();
+
+                // --- 7. Chaussures (simples) ---
+                const shoeW = 14 * SCALE;
+                const shoeH = 5 * SCALE;
+                const shoeY = legY + 10 * SCALE + legH;
+                
+                ctx.fillStyle = shoesColor;
+                // Chaussure Gauche
+                roundRect(headX - torsoW / 4 - legW / 2 - 2 * SCALE, shoeY, shoeW, shoeH, 2);
+                ctx.fill();
+                // Chaussure Droite
+                roundRect(headX + torsoW / 4 - legW / 2 - 2 * SCALE, shoeY, shoeW, shoeH, 2);
+                ctx.fill();
+
+                // Lacets (Blanc)
+                ctx.fillStyle = 'white';
+                ctx.fillRect(headX - torsoW / 4 - legW / 2 - 1 * SCALE, shoeY + 1 * SCALE, 2 * SCALE, 3 * SCALE);
+                ctx.fillRect(headX + torsoW / 4 - legW / 2 - 1 * SCALE, shoeY + 1 * SCALE, 2 * SCALE, 3 * SCALE);
+            }
+
+            update() {
+                // 1. Appliquer la gravité
+                this.vy += GRAVITY;
+                this.y += this.vy;
+
+                // 2. Mouvement Horizontal
+                if (keys['ArrowLeft'] || keys['KeyA'] || keys['KeyQ'] || this.isMovingLeft) {
+                    this.vx = -this.moveSpeed;
+                } else if (keys['ArrowRight'] || keys['KeyD'] || this.isMovingRight) {
+                    this.vx = this.moveSpeed;
+                } else {
+                    this.vx = 0;
+                }
+
+                this.x += this.vx;
+
+                // 3. Bouclage de l'écran horizontal
+                if (this.x > GAME_WIDTH) {
+                    this.x = -this.width;
+                } else if (this.x < -this.width) {
+                    this.x = GAME_WIDTH;
+                }
+
+                // 4. Détecter la chute (Game Over)
+                if (this.y > GAME_HEIGHT) {
+                    endGame();
+                }
+            }
+
+            jump() {
+                this.vy = -this.jumpStrength;
+            }
+        }
+
+        // --- CLASSE PLATEFORME ---
+        class Platform {
+            constructor(x, y, type = 'normal') {
+                this.width = 60 + Math.random() * 40; // Largeur variable
+                this.height = 10;
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 5; // Rayon des coins
+
+                // Propriétés pour les plateformes mobiles
+                if (this.type === 'moving') {
+                    this.vx = 2; // Vitesse de déplacement
+                    this.minX = x;
+                    this.maxX = x + 100 + (Math.random() * 50); // Bouge sur 100 à 150 pixels
+                }
+                
+                this.isBroken = false; 
+            }
+
+            update() {
+                if (this.type === 'moving') {
+                    this.x += this.vx;
+                    if (this.x > this.maxX || this.x < this.minX) {
+                        this.vx *= -1; 
+                    }
+                }
+            }
+
+            draw() {
+                const color = this.getColor();
+                let topColor = color;
+                let bottomColor = color;
+
+                switch (this.type) {
+                    case 'normal': 
+                        topColor = '#ffd75d'; 
+                        bottomColor = '#fcd34d'; 
+                        break;
+                    case 'moving': 
+                        topColor = '#60a5fa'; /* Bleu conservé pour les mobiles pour la distinction visuelle */
+                        bottomColor = '#3b82f6'; 
+                        break;
+                    case 'breakable': 
+                        topColor = '#fca5a5'; 
+                        bottomColor = '#ef4444'; 
+                        break;
+                }
+
+                // Dessin du rectangle arrondi avec gradient (effet 3D)
+                const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+                gradient.addColorStop(0, topColor);
+                gradient.addColorStop(1, bottomColor);
+                
+                ctx.fillStyle = gradient;
+                roundRect(this.x, this.y, this.width, this.height, this.radius);
+                ctx.fill();
+
+                // Ombre/Bordure
+                ctx.fillStyle = '#4b5563'; 
+                roundRect(this.x, this.y + this.height, this.width, 3, 3);
+                ctx.fill();
+
+                // Fissures pour les plateformes cassables
+                if (this.type === 'breakable' && !this.isBroken) {
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + 10, this.y + this.height / 2);
+                    ctx.lineTo(this.x + this.width - 10, this.y + this.height / 2);
+                    ctx.stroke();
+                }
+            }
+            
+            getColor() {
+                switch (this.type) {
+                    case 'normal': return '#fcd34d'; 
+                    case 'moving': return '#3b82f6'; 
+                    case 'breakable': return '#ef4444'; 
+                    default: return '#fcd34d';
+                }
+            }
+        }
+        
+        // --- CLASSE COLLECTIBLE (FEUILLE D'ERABLE VERTE) ---
+        class Collectible {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 20; // Taille légèrement augmentée
+                this.isCollected = false;
+                this.radius = this.size * 0.7; 
+            }
+
+            draw() {
+                if (this.isCollected) return;
+
+                const s = this.size / 2; // Moitié de la taille pour centrage
+                const centerX = this.x + s;
+                const centerY = this.y + s;
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                // Petite rotation pour l'effet de feuille volante
+                const rotation = Math.sin(Date.now() / 400) * 0.2 + 0.3; 
+                ctx.rotate(rotation); 
+                
+                ctx.fillStyle = '#10B981'; // Vert Émeraude
+                ctx.strokeStyle = '#065F46'; // Contour Vert foncé
+                ctx.lineWidth = 1.5;
+
+                // --- Nouveau Dessin de Feuille d'Érable plus réaliste (8 points) ---
+                const scale = s * 0.9;
+                ctx.beginPath();
+                
+                // Point de départ (Haut)
+                ctx.moveTo(0, -scale);
+                
+                // Pointe 1 (Haut-Droite)
+                ctx.quadraticCurveTo(scale * 0.2, -scale * 0.5, scale * 0.5, -scale * 0.7);
+                ctx.quadraticCurveTo(scale * 0.9, -scale * 0.5, scale * 0.7, 0);
+
+                // Pointe 2 (Droite)
+                ctx.quadraticCurveTo(scale * 0.9, scale * 0.3, scale * 0.5, scale * 0.6);
+                
+                // Base 1 (Bas-Droite)
+                ctx.quadraticCurveTo(scale * 0.2, scale * 0.8, scale * 0.05, scale * 0.9);
+
+                // Centre (Bas)
+                ctx.lineTo(0, scale * 1.1); // Pointe du bas (tige)
+                
+                // Base 2 (Bas-Gauche)
+                ctx.lineTo(-scale * 0.05, scale * 0.9);
+                ctx.quadraticCurveTo(-scale * 0.2, scale * 0.8, -scale * 0.5, scale * 0.6);
+
+                // Pointe 3 (Gauche)
+                ctx.quadraticCurveTo(-scale * 0.9, scale * 0.3, -scale * 0.7, 0);
+
+                // Pointe 4 (Haut-Gauche)
+                ctx.quadraticCurveTo(-scale * 0.9, -scale * 0.5, -scale * 0.5, -scale * 0.7);
+                ctx.quadraticCurveTo(-scale * 0.2, -scale * 0.5, 0, -scale); // Retour au point de départ
+                
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Tige
+                ctx.strokeStyle = '#8B4513'; 
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, scale * 1.1);
+                ctx.lineTo(0, scale * 1.1 + 5);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            update() {
+                // Pas de mouvement horizontal propre, seulement le défilement de la caméra
+            }
+        }
+
+
+        // --- CLASSE CHAT (ENEMI) - SAMI ---
+        class Cat {
+            constructor(x, y) {
+                this.bodyW = 25;
+                this.bodyH = 18;
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() > 0.5 ? 1 : -1) * 1.5; // Vitesse horizontale
+                this.range = 80 + Math.random() * 40; 
+                this.initialX = x;
+            }
+            
+            update() {
+                this.x += this.vx;
+
+                if (this.x > this.initialX + this.range || this.x < this.initialX - this.range) {
+                    this.vx *= -1;
+                }
+            }
+
+            draw() {
+                const catColor = '#f97316'; // Orange vif
+                const bodyX = this.x - this.bodyW / 2;
+                const bodyY = this.y - this.bodyH / 2;
+                
+                // Détection de collision centrée
+                this.radius = Math.max(this.bodyW, this.bodyH) / 2; 
+
+                // --- 1. Queue (Trait courbé) ---
+                ctx.strokeStyle = catColor;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(bodyX, bodyY + this.bodyH); 
+                // Dessine une courbe pour la queue touffue
+                ctx.bezierCurveTo(
+                    bodyX - 10, bodyY + this.bodyH + 10, // Point de contrôle 1
+                    bodyX - 20, bodyY + this.bodyH - 5,  // Point de contrôle 2
+                    bodyX - 15, bodyY + this.bodyH - 10  // Fin de la queue
+                );
+                ctx.stroke();
+
+                // --- 2. Corps (Ovale) ---
+                ctx.fillStyle = catColor;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.bodyW / 2, this.bodyH / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // --- 3. Tête (Cercle attaché au corps) ---
+                const headR = 10;
+                const headX = this.x + this.bodyW / 2 - 5;
+                const headY = this.y - 5;
+                ctx.beginPath();
+                ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // --- 4. Oreilles (Triangles stylisés) ---
+                ctx.beginPath();
+                // Oreille gauche
+                ctx.moveTo(headX - headR * 0.5, headY - headR);
+                ctx.lineTo(headX - headR * 0.1, headY - headR * 1.5);
+                ctx.lineTo(headX + headR * 0.2, headY - headR);
+                // Oreille droite
+                ctx.moveTo(headX + headR * 0.7, headY - headR);
+                ctx.lineTo(headX + headR * 0.4, headY - headR * 1.5);
+                ctx.lineTo(headX + headR * 0.9, headY - headR);
+                ctx.fill();
+                
+                // --- 5. Yeux et Moustaches ---
+                
+                // Yeux (petits points noirs)
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(headX - headR * 0.3, headY - 2, 1, 0, Math.PI * 2);
+                ctx.arc(headX + headR * 0.3, headY - 2, 1, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Moustaches
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(headX - headR, headY); ctx.lineTo(headX - headR - 5, headY);
+                ctx.moveTo(headX - headR, headY + 2); ctx.lineTo(headX - headR - 5, headY + 3);
+                ctx.moveTo(headX + headR, headY); ctx.lineTo(headX + headR + 5, headY);
+                ctx.moveTo(headX + headR, headY + 2); ctx.lineTo(headX + headR + 5, headY + 3);
+                ctx.stroke();
+            }
+        }
+
+
+        // --- FONCTIONS DU JEU ---
+
+        function initClouds() {
+            clouds = [];
+            for(let i = 0; i < CLOUD_COUNT; i++) {
+                clouds.push(new Cloud(
+                    Math.random() * GAME_WIDTH, 
+                    Math.random() * GAME_HEIGHT, 
+                    20 + Math.random() * 30 // Taille aléatoire
+                ));
+            }
+        }
+
+        function initGame() {
+            score = 0; // Utilisation de la variable globale 'score' (sans 'let')
+            isPlaying = true;
+            gameOverModal.style.display = 'none';
+            keys = {};
+
+            sibyl = new Sibyl();
+            platforms = [];
+            enemies = []; 
+            collectibles = []; // Réinitialisation sans 'let' pour éviter l'erreur de déclaration
+            initClouds(); // Initialiser les nuages
+
+            // Créer la plateforme de départ
+            platforms.push(new Platform(GAME_WIDTH / 2 - 50, GAME_HEIGHT - 50, 'normal'));
+            
+            // Forcer Sibyl à sauter au démarrage
+            sibyl.jump(); 
+
+            // Générer le reste des plateformes
+            generatePlatforms();
+
+            updateScoreDisplay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function generatePlatforms() {
+            let currentY = GAME_HEIGHT - 100;
+            const ySpacing = 50;
+
+            for (let i = 1; i < PLATFORM_COUNT; i++) {
+                const x = Math.random() * (GAME_WIDTH - 100);
+                const y = currentY - ySpacing - (Math.random() * 20); 
+                
+                const rand = Math.random();
+                let platformType = 'normal';
+                
+                if (rand < 0.3) {
+                    platformType = 'moving';
+                } else if (rand < 0.4) {
+                    platformType = 'breakable';
+                }
+
+                platforms.push(new Platform(x, y, platformType));
+                currentY = y;
+                const newPlatform = platforms[platforms.length - 1];
+                
+                // --- Spawn Enemy Check ---
+                if (Math.random() < CAT_SPAWN_PROBABILITY) {
+                    enemies.push(new Cat(newPlatform.x + newPlatform.width / 2, y - 50)); 
+                }
+                
+                // --- Spawn Collectible Check (Feuille d'Erable) ---
+                if (Math.random() < LEAF_SPAWN_PROBABILITY) {
+                    // Positionner la feuille au-dessus du centre de la plateforme
+                    const platformCenter = newPlatform.x + newPlatform.width / 2;
+                    // Position X ajustée (feuille est centrée à 10px du point de dessin)
+                    collectibles.push(new Collectible(platformCenter - 10, y - 35));
+                }
+            }
+        }
+        
+        function refillPlatforms() {
+            if (platforms.length === 0) return; 
+            
+            const topPlatform = platforms.reduce((max, p) => (p.y < max.y ? p : max), platforms[0]);
+            
+            if (topPlatform.y > 50) return; 
+
+            let currentY = topPlatform.y;
+            const ySpacing = 50;
+
+            for (let i = 0; i < 5; i++) {
+                const x = Math.random() * (GAME_WIDTH - 100);
+                currentY -= (ySpacing + (Math.random() * 20)); 
+                
+                const rand = Math.random();
+                let platformType = 'normal';
+                
+                if (rand < 0.3) {
+                    platformType = 'moving';
+                } else if (rand < 0.4) {
+                    platformType = 'breakable';
+                }
+
+                platforms.push(new Platform(x, currentY, platformType)); 
+                const newPlatform = platforms[platforms.length - 1];
+
+                // --- Spawn Enemy Check (Remplissage) ---
+                if (Math.random() < CAT_SPAWN_PROBABILITY) {
+                    enemies.push(new Cat(newPlatform.x + newPlatform.width / 2, currentY - 50)); 
+                }
+                
+                // --- Spawn Collectible Check (Feuille d'Erable) ---
+                if (Math.random() < LEAF_SPAWN_PROBABILITY) {
+                    // Positionner la feuille au-dessus du centre de la plateforme
+                    const platformCenter = newPlatform.x + newPlatform.width / 2;
+                    collectibles.push(new Collectible(platformCenter - 10, currentY - 35));
+                }
+            }
+        }
+
+
+        function checkCollision() {
+            if (sibyl.vy > 0) { // On vérifie la collision uniquement si Sibyl descend
+                for (let i = 0; i < platforms.length; i++) {
+                    const platform = platforms[i];
+                    
+                    if (
+                        sibyl.x < platform.x + platform.width &&
+                        sibyl.x + sibyl.width > platform.x &&
+                        sibyl.y + sibyl.height > platform.y &&
+                        sibyl.y + sibyl.height < platform.y + platform.height 
+                    ) {
+                        sibyl.jump();
+
+                        if (platform.type === 'breakable') {
+                            platforms.splice(i, 1); 
+                            i--; 
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        
+        function checkEnemyCollision() {
+            const sibylLeft = sibyl.x;
+            const sibylRight = sibyl.x + sibyl.width;
+            const sibylTop = sibyl.y;
+            const sibylBottom = sibyl.y + sibyl.height;
+
+            for (let i = 0; i < enemies.length; i++) {
+                const cat = enemies[i];
+                // Utiliser le rayon de la tête/corps du chat pour une zone de collision simple
+                const catR = cat.radius || 12; // Rayon par défaut
+                const catLeft = cat.x - catR;
+                const catRight = cat.x + catR;
+                const catTop = cat.y - catR;
+                const catBottom = cat.y + catR;
+
+                if (
+                    sibylLeft < catRight &&
+                    sibylRight > catLeft &&
+                    sibylTop < catBottom &&
+                    sibylBottom > catTop
+                ) {
+                    endGame();
+                    return;
+                }
+            }
+        }
+        
+        function checkCollectibleCollision() {
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const leaf = collectibles[i];
+                
+                // Collision check (Sibyl width/height vs leaf position/size)
+                if (
+                    sibyl.x < leaf.x + leaf.size &&
+                    sibyl.x + sibyl.width > leaf.x &&
+                    sibyl.y < leaf.y + leaf.size &&
+                    sibyl.y + sibyl.height > leaf.y
+                ) {
+                    collectibles.splice(i, 1);
+                    score += 50; // Ajouter un bon score pour la collecte
+                    updateScoreDisplay();
+                }
+            }
+        }
+
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = score;
+        }
+        
+        function handleCameraScroll() {
+            if (sibyl.y < CAMERA_THRESHOLD) {
+                const scrollAmount = CAMERA_THRESHOLD - sibyl.y;
+                
+                sibyl.y += scrollAmount; 
+                
+                platforms.forEach(p => p.y += scrollAmount);
+                enemies.forEach(e => e.y += scrollAmount);
+                collectibles.forEach(l => l.y += scrollAmount); // Déplacer les collectibles
+                clouds.forEach(c => c.update(scrollAmount)); // Déplacer les nuages
+
+                score += Math.floor(scrollAmount * 0.1); 
+
+                if (score > bestScore) {
+                    bestScore = score;
+                }
+                
+                platforms = platforms.filter(p => p.y < GAME_HEIGHT + 10);
+                enemies = enemies.filter(e => e.y < GAME_HEIGHT + 10);
+                collectibles = collectibles.filter(l => l.y < GAME_HEIGHT + 10); // Filtrer les collectibles sortis
+                
+                refillPlatforms();
+            }
+        }
+
+        function endGame() {
+            isPlaying = false;
+            finalScoreDisplay.textContent = score;
+            
+            // Mise à jour du message de Game Over
+            if (score < 500) { // Exemple de condition pour le message spécifique
+                gameOverMessage.textContent = "Trop tard, tu n'as pas collecté assez de feuilles !";
+                // Ajouter le texte "Retourne à Commentry" si vous le souhaitez, mais je le mets en dur dans le HTML pour la structure.
+            } else {
+                 gameOverMessage.textContent = "Incroyable ! Tu as atteint un score impressionnant !";
+            }
+            
+            gameOverModal.style.display = 'flex';
+        }
+
+        // --- BOUCLE DE JEU PRINCIPALE ---
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            // 1. Effacer le canvas
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // 2. Dessiner les nuages
+            clouds.forEach(cloud => cloud.draw());
+
+            // 3. Mettre à jour Sibyl
+            sibyl.update();
+            
+            // 4. Mettre à jour les plateformes mobiles
+            platforms.forEach(platform => platform.update());
+
+            // 5. Mettre à jour les ennemis (Chats)
+            enemies.forEach(cat => cat.update());
+            
+            // Les collectibles n'ont pas de mise à jour propre, juste le défilement
+
+            // 6. Gérer le défilement de la caméra et le score
+            handleCameraScroll();
+            updateScoreDisplay();
+
+            // 7. Détecter les collisions (plateformes)
+            checkCollision();
+
+            // 8. Détecter les collisions avec les ennemis
+            checkEnemyCollision(); 
+            if (!isPlaying) return; 
+            
+            // 9. Détecter les collisions avec les collectibles
+            checkCollectibleCollision();
+
+            // 10. Dessiner les plateformes
+            platforms.forEach(platform => platform.draw());
+
+            // 11. Dessiner les ennemis
+            enemies.forEach(cat => cat.draw());
+            
+            // 12. Dessiner les collectibles
+            collectibles.forEach(leaf => leaf.draw());
+
+            // 13. Dessiner Sibyl
+            sibyl.draw();
+
+            // 14. Continuer la boucle
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- GESTION DES INPUTS (CLAVIER) ---
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyA' || e.code === 'KeyQ') {
+                keys['KeyA'] = true;
+                keys['KeyQ'] = true;
+            } else {
+                keys[e.code] = true;
+            }
+            if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD' || e.code === 'KeyQ') {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyA' || e.code === 'KeyQ') {
+                keys['KeyA'] = false;
+                keys['KeyQ'] = false;
+            } else {
+                keys[e.code] = false;
+            }
+        });
+
+        // --- GESTION DES INPUTS (TACTILE/BOUTONS) ---
+        function handleButton(button, isDown, direction) {
+            if (!sibyl) return;
+            if (direction === 'left') {
+                sibyl.isMovingLeft = isDown;
+                sibyl.isMovingRight = false;
+                keys['ArrowLeft'] = isDown;
+                keys['ArrowRight'] = false;
+            } else if (direction === 'right') {
+                sibyl.isMovingRight = isDown;
+                sibyl.isMovingLeft = false;
+                keys['ArrowRight'] = isDown;
+                keys['ArrowLeft'] = false;
+            }
+        }
+
+        // Événements pour le bouton Gauche
+        leftButton.addEventListener('mousedown', () => handleButton(leftButton, true, 'left'));
+        leftButton.addEventListener('touchstart', (e) => { e.preventDefault(); handleButton(leftButton, true, 'left'); });
+        document.addEventListener('mouseup', () => handleButton(leftButton, false, 'left'));
+        document.addEventListener('touchend', () => handleButton(leftButton, false, 'left'));
+        document.addEventListener('touchcancel', () => handleButton(leftButton, false, 'left')); // Ajouté pour robustesse
+
+        // Événements pour le bouton Droit
+        rightButton.addEventListener('mousedown', () => handleButton(rightButton, true, 'right'));
+        rightButton.addEventListener('touchstart', (e) => { e.preventDefault(); handleButton(rightButton, true, 'right'); });
+        document.addEventListener('mouseup', () => handleButton(rightButton, false, 'right'));
+        document.addEventListener('touchend', () => handleButton(rightButton, false, 'right'));
+        document.addEventListener('touchcancel', () => handleButton(rightButton, false, 'right')); // Ajouté pour robustesse
+        
+        // Empêcher l'action 'up' sur le bouton
+        leftButton.addEventListener('mouseout', () => handleButton(leftButton, false, 'left'));
+        rightButton.addEventListener('mouseout', () => handleButton(rightButton, false, 'right'));
+
+
+        // --- DÉMARRAGE ET REDÉMARRAGE ---
+        restartButton.addEventListener('click', initGame);
+
+        // Lancement initial du jeu
+        initGame();
+    });
+</script>
+
+</body>
+</html>
